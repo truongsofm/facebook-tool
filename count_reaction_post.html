@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Count Reaction Post</title>
+</head>
+<body>
+<h3>Nhập token của bạn: 
+	<a href="https://www.facebook.com/groups/j2team.community/search/?query=token" target="_blank">Tìm cách lấy token trong nhóm J2Team Community</a>
+</h3>
+<input type="text" id="token_person" placeholder="EAAA..." value=""><br>
+Token Page (Nếu muốn làm cho page)
+<input type="text" id="token_page" placeholder="EAAA..." value=""><br>
+<h3>Nhập id trang (hoặc nhóm, hoặc cá nhân): <a href="https://findmyfbid.com" target="_blank">Tìm trên findmyfbid.com</a></h3>
+<input type="number" id="id_object" placeholder="1000...." value=""><br>
+<h3>Nhập id bài đăng, mỗi id xuống dòng nhé</h3><textarea cols="50" rows="10" placeholder="10000000
+20000000"></textarea>
+<br>
+<button>OK</button>
+<h1>Danh sách đã lọc</h1>
+<table>
+	<thead>
+		<th>
+			STT
+		</th>
+		<th>
+			ID Bài Đăng
+		</th>
+		<th>
+			Like
+		</th>
+		<!-- <th>
+			Comment
+		</th> -->
+		<th>
+			Share
+		</th>
+	</thead>
+</table>
+<!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> -->
+
+
+<script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.css"/>
+ 
+<script type="text/javascript" src="https://cdn.datatables.net/v/dt/dt-1.10.18/datatables.min.js"></script>	
+<script>
+Array.prototype.unique = function() {
+	return Array.from(new Set(this));
+}
+let token_page, token_person, id_object, id_object_new, array_id, array_index = [], array_share = [], array_like = [], array_comment = [], array_unique = [], activeAjaxConnections = [], index_post = 0;
+var t = $('table').DataTable();
+$(document).ready(function(){
+    $("button").click(function(e){
+    	t.clear();
+        e.stopPropagation();
+		token_person = $("#token_person").val();
+		token_page   = $("#token_page").val();
+		id_object    = $("#id_object").val();
+		array_id     = $("textarea").val().split("\n");
+        $.each(array_id, function(index,id_post){
+        	index_post++;
+        	id_object_new = `${id_object}_${id_post}`;
+
+        	link = `https://graph.facebook.com/${id_object_new}/sharedposts?limit=1000&fields=from.id&access_token=${token_person}`;
+			array_share[id_object_new]           = [];
+			activeAjaxConnections[id_object_new] = 2;
+        	getShare(link,id_object_new);
+			// array_comment[id_object_new]         = 0;
+        	// getComment(id_post,id_object_new);
+
+			array_index[id_object_new] = index_post;
+
+			array_like[id_object_new] = 0;
+        	getLike(id_post,id_object_new);
+       });
+    });
+});
+function getShare(link,id_object_new){
+	$.ajax({
+		url: link,
+		dataType: 'json',
+	})
+	.success(function(response) {
+		$.each(response.data, function(index,each){
+			array_share[id_object_new].push(each.from.id);
+		});
+		if(response.paging){
+			if(response.paging.next){
+				link = response.paging.next;
+				getShare(link,id_object_new);
+			}
+			else{
+				activeAjaxConnections[id_object_new]--;
+				if(activeAjaxConnections[id_object_new]==0){
+					getResult(id_object_new);
+				}
+			}
+		}
+		else{
+			activeAjaxConnections[id_object_new]--;
+			if(activeAjaxConnections[id_object_new]==0){
+				getResult(id_object_new);
+			}
+		}
+	})
+	.fail(function() {
+		getShare(link,id_object_new);
+		// alert("Bạn đã nhập 1 cái gì đó sai sai");
+	});
+}
+function getLike(id_post,id_object_new){
+	link = `https://graph.facebook.com/${id_post}/reactions?limit=0&fields=id&summary=true&access_token=${token_page}`;
+	$.ajax({
+		url: link,
+		dataType: 'json',
+	})
+	.success(function(response) {
+		if(response.summary){
+			array_like[id_object_new] = response.summary.total_count;
+		}
+		activeAjaxConnections[id_object_new]--;
+		if(activeAjaxConnections[id_object_new]==0){
+			getResult(id_object_new);
+		}
+	})
+	.fail(function() {
+		getLike(id_post,id_object_new);
+		// alert("Bạn đã nhập 1 cái gì đó sai sai");
+	});
+}
+// function getComment(id_post,id_object_new){
+// 	link = `https://graph.facebook.com/${id_post}/comments?limit=1000&access_token=${token}`;
+// 	$.ajax({
+// 		url: link,
+// 		dataType: 'json',
+// 	})
+// 	.success(function(response) {
+// 		if(response.comments){
+// 			array_comment[id_object_new] = response.comments.count;
+// 		}
+// 		activeAjaxConnections[id_object_new]--;
+// 		if(activeAjaxConnections[id_object_new]==0){
+// 			getResult(id_object_new);
+// 		}
+// 	})
+// }
+function getResult(id_object_new){
+	array_unique = array_share[id_object_new].unique();
+	console.log(id_object_new,array_share[id_object_new],array_unique);
+	index = array_index[id_object_new];
+	t.row.add( [
+        index,
+        `<a href="https://fb.com/${id_object_new}" target="_blank">fb.com/${id_object_new}</a>`,
+        array_like[id_object_new],
+        // array_comment[id_object_new],
+        array_unique.length
+    ] ).draw( true );
+}
+</script>
+</body>
+</html>
